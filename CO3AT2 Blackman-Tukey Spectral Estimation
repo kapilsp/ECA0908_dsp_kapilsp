@@ -1,0 +1,63 @@
+% Q14: Blackman-Tukey Spectral Estimation
+clc;
+clear;
+close all;
+
+% Given data
+f0 = 300;              % Signal frequency in Hz
+Fs = 3000;             % Sampling frequency in Hz
+N = 1024;              % Number of signal samples
+n = 0:N-1;
+t = n/Fs;
+
+% Test signal: 300 Hz sinusoid with small noise
+x = sin(2*pi*f0*t) + 0.15*randn(1,N);
+
+% Autocorrelation window lengths
+M_values = [32 64 128];
+NFFT = 4096;
+
+figure;
+
+for k = 1:length(M_values)
+
+    M = M_values(k);
+
+    % Autocorrelation sequence for lags -M to +M
+    lags = -M:M;
+    rxx = zeros(size(lags));
+
+    for i = 1:length(lags)
+        lag = lags(i);
+
+        if lag >= 0
+            rxx(i) = sum(x(1:N-lag) .* x(1+lag:N)) / N;
+        else
+            rxx(i) = sum(x(1-lag:N) .* x(1:N+lag)) / N;
+        end
+    end
+
+    % Blackman window applied to autocorrelation sequence
+    L = length(rxx);
+    m = 0:L-1;
+    w = 0.42 - 0.5*cos(2*pi*m/(L-1)) ...
+        + 0.08*cos(4*pi*m/(L-1));
+
+    rxx_windowed = rxx .* w;
+
+    % Blackman-Tukey spectral estimate
+    Pxx = abs(fftshift(fft(rxx_windowed, NFFT)));
+    Pxx = Pxx / max(Pxx);      % Normalize spectrum
+
+    % Frequency axis
+    f = (-NFFT/2:NFFT/2-1)*(Fs/NFFT);
+
+    % Plot only positive-frequency spectrum
+    subplot(3,1,k);
+    plot(f(f >= 0), Pxx(f >= 0), 'LineWidth', 1.5);
+    grid on;
+    xlim([0 800]);
+    xlabel('Frequency (Hz)');
+    ylabel('Normalized PSD');
+    title(['Blackman-Tukey Spectrum: Autocorrelation Window Length M = ', num2str(M)]);
+end
